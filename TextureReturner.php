@@ -99,14 +99,12 @@ class Check
     }
     public static function regex_valid_username($var)
     {
-        if (!is_null($var) && (preg_match(Constants::REGEX_USERNAME, $var, $varR)))
-            return true;
+        return (!is_null($var) && (preg_match(Constants::REGEX_USERNAME, $var, $varR)));
     }
     public static function regex_valid_uuid($var)
     {
-        if (!is_null($var) && (preg_match(Constants::REGEX_UUIDv1, $var, $varR) ||
-            preg_match(Constants::REGEX_UUIDv4, $var, $varR)))
-            return true;
+        return (!is_null($var) && (preg_match(Constants::REGEX_UUIDv1, $var, $varR) ||
+            preg_match(Constants::REGEX_UUIDv4, $var, $varR)));
     }
 }
 class Modifier
