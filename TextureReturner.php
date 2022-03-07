@@ -109,11 +109,6 @@ class Check
         [$image, $fraction] = Utils::pre_calculation($data);
         return [$image, $fraction, self::slim($image, $fraction)];
     }
-    // public static function cloak($login)
-    // {
-    //     $data = Constants::getCloak($login);
-    //     return $data;
-    // }
     public static function slim($image, $fraction): bool
     {
         $x = $fraction * 6.75;
@@ -238,8 +233,8 @@ class Modifier
     {
         [$image, $fraction] = $data;
         $canvas = Utils::create_canvas_transparent($size, $size);
-        imagecopyresized($canvas, $image, 0, 0, $fraction, $fraction, $size, $size, $fraction, $fraction); // голова
-        imagecopyresized($canvas, $image, 0, 0, $fraction * 5, $fraction, $size, $size, $fraction, $fraction); // второй слой
+        imagecopyresized($canvas, $image, 0, 0, $fraction, $fraction, $size, $size, $fraction, $fraction);
+        imagecopyresized($canvas, $image, 0, 0, $fraction * 5, $fraction, $size, $size, $fraction, $fraction);
         responseTexture(imagepng($canvas));
     }
     public static function cloak_resize($data, $size)
