@@ -10,25 +10,27 @@ class Constants
     const DEBUG = false; // Сохранение в файл debug.log !!! Не устанавливайте true навсегда и не забудьте после настройки удалить файл debug.log из папки
     const SKIN_PATH = "./skins/"; // Сюда вписать путь до skins/
     const CLOAK_PATH = "./cloaks/"; // Сюда вписать путь до cloaks/
+    const CACHE_FOLDER = "./TextureReturner_cache/"; // mkdir -p ./TextureReturner_cache/front && mkdir -p ./TextureReturner_cache/back && mkdir -p ./TextureReturner_cache/avatar && mkdir -p ./TextureReturner_cache/cloak_resize && chown -R www-data:www-data ./TextureReturner_cache/
     const REGEX_USERNAME = "\w{1,16}$";
-    const REGEX_UUIDv4 = "\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b";
-    const REGEX_UUIDv1 = "[a-f0-9]{8}\-[a-f0-9]{4}\-4[a-f0-9]{3}\-(8|9|a|b)[a-f0-9]{4}\-[a-f0-9]{12}";
-    const GIVE_DEFAULT = true; // Выдавать ли этим скриптом default скины и плащи, если упомянутые не найдены в папках
+    const REGEX_UUIDv1_AND_v4 = "[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}";
+    const GIVE_DEFAULT = true; // Устанавливать ли default скин и плащ, если не найден по $login
     const SKIN_DEFAULT = "iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAMAAACVQ462AAAAWlBMVEVHcEwsHg51Ri9qQC+HVTgjIyNOLyK7inGrfWaWb1udZkj///9SPYmAUjaWX0FWScwoKCgAzMwAXl4AqKgAaGgwKHImIVtGOqU6MYkAf38AmpoAr68/Pz9ra2t3xPtNAAAAAXRSTlMAQObYZgAAAZJJREFUeNrUzLUBwDAUA9EPMsmw/7jhNljl9Xdy0J3t5CndmcOBT4Mw8/8P4pfB6sNg9yA892wQvwzSIr8f5JRzSeS7AaiptpxazUq8GPQB5uSe2DH644GTsDFsNrqB9CcDgOCAmffegWWwAExnBrljqowsFBuGYShY5oakgOXs/39zF6voDG9r+wLvTCVUcL+uV4m6uXG/L3Ut691697tgnZgJavinQHOB7DD8awmaLWEmaNuu7YGf6XcIITRm19P1ahbARCRGEc8x/UZ4CroXAQTVIGL0YySrREBADFGicS8XtG8CTS+IGU2F6EgSE34VNKoNz8348mzoXGDxpxkQBpg2bWobjgZSm+uiKDYH2BAO8C4YBmbgAjpq5jUl4yGJC46HQ7HJBfkeTAImIEmgmtpINi44JsHx+CKA/BTuArISXeBTR4AI5gK4C2JqRfPs0HNBkQnG8S4Yxw8IGoIZfXEBOW1D4YJDAdNSXgRevP+ylK6fGBCwsWywmA19EtBkJr8K2t4N5pnAVwH0jptsBp+2gUFj4tL5ywAAAABJRU5ErkJggg==";
     const CLOAK_DEFAULT = "iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgAQMAAACYU+zHAAAAA1BMVEVHcEyC+tLSAAAAAXRSTlMAQObYZgAAAAxJREFUeAFjGAV4AQABIAABL3HDQQAAAABJRU5ErkJggg==";
-    const AVATAR_CANVAS = 80;
-    const BLOCK_CANVAS = 128;
-    const CLOAK_CANVAS = 16;
+    const AVATAR_CANVAS = 80; // Ширина и высота для метода avatar. Если будут проблемы с HD скинами с шириной 1024, установить значение на 128. Принято 80, как максимум для Embed Object thumbnail? который отображается по факту
+    const BLOCK_CANVAS = 128; // Ширина блока для таких методов как front, back
+    const CLOAK_CANVAS = 16; // Умножится на минимальную ширину в 22 пикселя
+    const BOUND_WIDTH_CANVAS = 512; // Предел ширины, для ограничения нагрузки вызываемого параметра size. Действует только на front, back, avatar, cloak_resize == элементы работающие с canvas полем и преобразованием размера
+    const IMAGE_CACHE_TIME = 60; // Кеширование front, back, avatar, cloak_resize в секундах
 
     public static function getSkin($login)
     {
-        $path = Utils::ci_find_file(self::SKIN_PATH . $login . '.png');
-        return $path ? file_get_contents($path) : (self::GIVE_DEFAULT ? base64_decode(self::SKIN_DEFAULT) : responseTexture());
+        $filename = Utils::ci_find_file(self::SKIN_PATH . $login . '.png');
+        return $filename ? file_get_contents($filename) : (self::GIVE_DEFAULT ? base64_decode(self::SKIN_DEFAULT) : responseTexture());
     }
     public static function getCloak($login)
     {
-        $path = Utils::ci_find_file(self::CLOAK_PATH . $login . '.png');
-        return $path ? file_get_contents($path) : (self::GIVE_DEFAULT ? base64_decode(self::CLOAK_DEFAULT) : responseTexture());
+        $filename = Utils::ci_find_file(self::CLOAK_PATH . $login . '.png');
+        return $filename ? file_get_contents($filename) : (self::GIVE_DEFAULT ? base64_decode(self::CLOAK_DEFAULT) : responseTexture());
     }
 }
 class Occurrences
@@ -97,6 +99,7 @@ class Occurrences
                     !empty($size) ? $size : $size = Constants::BLOCK_CANVAS;
                     break;
             }
+            if($size > Constants::BOUND_WIDTH_CANVAS) responseTexture();
             return self::$size = $size;
         } else return self::$size;
     }
@@ -125,9 +128,15 @@ class Check
     }
     public static function regex_valid_uuid($var)
     {
-        if (!is_null($var) && (preg_match("/" . Constants::REGEX_UUIDv1 . "/", $var, $varR) ||
-            preg_match("/" . Constants::REGEX_UUIDv4 . "/", $var, $varR)))
-            return true;
+        return (!is_null($var) && preg_match("/" . Constants::REGEX_UUIDv1_AND_v4 . "/", $var, $varR));
+    }
+    public static function cacheValid($filename, $size)
+    {
+        if (!file_exists($filename)) return false;
+        $time = filemtime($filename);
+        if ($size != getimagesize($filename)) return false;
+        if ($time <= time() - 1 * Constants::IMAGE_CACHE_TIME) return false;
+        return true;
     }
 }
 class Utils
@@ -161,8 +170,23 @@ class Utils
         imagesavealpha($canvas, TRUE);
         return $canvas;
     }
-    public static function image_flip($image)
+    public static function saveCacheFile($login, $canvas, $method)
     {
+        $filename = Constants::CACHE_FOLDER . strtolower($method) . '/' . strtolower($login) . '.png';
+        imagepng($canvas, $filename, 9);
+    }
+    public static function loadCacheFile($filename)
+    {
+        return file_get_contents($filename);
+    }
+    public static function removeCacheFiles($method)
+    {
+        foreach (glob(Constants::CACHE_FOLDER . strtolower($method) . '/*', GLOB_NOSORT) as $file) {
+
+            if (time() - lstat($file)['ctime'] > Constants::IMAGE_CACHE_TIME * 2) {
+                unlink($file);
+            }
+        }
     }
 }
 class Modifier
@@ -196,7 +220,7 @@ class Modifier
         imagecopy($canvas_front, $canvas_leg, $f_part * 2, $f_part * 5, 0, 0, $f_part, $f_part * 3);
         //Resize
         imagecopyresized($canvas, $canvas_front, 0, 0, 0, 0,   $size, $size * 2, $fraction * 2, $fraction * 4);
-        responseTexture(imagepng($canvas));
+        return $canvas;
     }
     public static function back($data, $size)
     {
@@ -227,7 +251,7 @@ class Modifier
         imagecopy($canvas_back, $canvas_leg, $f_part, $f_part * 5, 0, 0, $f_part, $f_part * 3);
         //Resize
         imagecopyresized($canvas, $canvas_back, 0, 0, 0, 0,   $size, $size * 2, $fraction * 2, $fraction * 4);
-        responseTexture(imagepng($canvas));
+        return $canvas;
     }
     public static function avatar($data, $size)
     {
@@ -235,7 +259,7 @@ class Modifier
         $canvas = Utils::create_canvas_transparent($size, $size);
         imagecopyresized($canvas, $image, 0, 0, $fraction, $fraction, $size, $size, $fraction, $fraction);
         imagecopyresized($canvas, $image, 0, 0, $fraction * 5, $fraction, $size, $size, $fraction, $fraction);
-        responseTexture(imagepng($canvas));
+        return $canvas;
     }
     public static function cloak_resize($data, $size)
     {
@@ -244,7 +268,7 @@ class Modifier
         $fraction = $width / 64;
         $canvas = Utils::create_canvas_transparent($size * 22, $size * 17);
         imagecopyresized($canvas, $image, 0, 0, 0, 0, $size * 22, $size * 17, $fraction * 22, $fraction * 17);
-        responseTexture(imagepng($canvas));
+        return $canvas;
     }
 }
 function start()
@@ -258,32 +282,46 @@ function start()
         case 'front':
         case 'back':
         case 'avatar':
-            header("Content-type: image/png");
             switch ($method) {
                 case 'skin':
-                    responseTexture(Constants::getSkin($login));
+                    $data = Constants::getSkin($login);
+                    header("Content-type: image/png");
+                    responseTexture($data);
                     break;
                 default:
-                    Modifier::$method(Check::skin($login), $occurrences::$size);
+                    $filename = Constants::CACHE_FOLDER . strtolower($method) . '/' . strtolower($login) . '.png';
+                    Utils::removeCacheFiles($method);
+                    if (!Check::cacheValid($filename, $occurrences::$size)) {
+                        Utils::saveCacheFile($login, Modifier::$method(Check::skin($login), $occurrences::$size), $method);
+                    }
+                    header("Content-type: image/png");
+                    responseTexture(Utils::loadCacheFile($filename));
                     break;
             }
             break;
         case 'cloak':
         case 'cloak_resize':
-            $data = Constants::getCloak($login);
-            header("Content-type: image/png");
             switch ($method) {
                 case 'cloak':
+                    $data = Constants::getCloak($login);
+                    header("Content-type: image/png");
                     responseTexture($data);
                     break;
                 default:
-                    Modifier::$method($data, $occurrences::$size);
+                    $filename = Constants::CACHE_FOLDER . strtolower($method) . '/' . strtolower($login) . '.png';
+                    Utils::removeCacheFiles($method);
+                    if (!Check::cacheValid($filename, $occurrences::$size * 22)) {
+                        Utils::saveCacheFile($login, Modifier::$method(Constants::getCloak($login), $occurrences::$size), $method);
+                    }
+                    header("Content-type: image/png");
+                    responseTexture(Utils::loadCacheFile($filename));
                     break;
             }
             break;
         default:
+            $data = Constants::getSkin($login);
             header("Content-type: image/png");
-            responseTexture(Constants::getSkin($login));
+            responseTexture($data);
     }
 }
 function responseTexture($data = null)
