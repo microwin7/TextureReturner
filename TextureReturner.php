@@ -172,7 +172,10 @@ class Utils
     }
     public static function saveCacheFile($login, $canvas, $method)
     {
-        $filename = Constants::CACHE_FOLDER . strtolower($method) . '/' . strtolower($login) . '.png';
+        $directory = Constants::CACHE_FOLDER . strtolower($method) . '/';
+        if (!file_exists($directory))
+            mkdir($directory, 0777, true);
+        $filename = $directory . strtolower($login) . '.png';
         imagepng($canvas, $filename, 9);
     }
     public static function loadCacheFile($filename)
@@ -257,8 +260,33 @@ class Modifier
     {
         [$image, $fraction] = $data;
         $canvas = Utils::create_canvas_transparent($size, $size);
-        imagecopyresized($canvas, $image, 0, 0, $fraction, $fraction, $size, $size, $fraction, $fraction);
-        imagecopyresized($canvas, $image, 0, 0, $fraction * 5, $fraction, $size, $size, $fraction, $fraction);
+        $size_under = (int)floor($size / 1.1);
+        if ($size_under % 2 !== 0) $size_under--;
+        $size_part = ($size - $size_under) / 2;
+        imagecopyresized(
+            $canvas,
+            $image,
+            $size_part,
+            $size_part,
+            $fraction,
+            $fraction,
+            $size_under,
+            $size_under,
+            $fraction,
+            $fraction
+        );
+        imagecopyresized(
+            $canvas,
+            $image,
+            0,
+            0,
+            $fraction * 5,
+            $fraction,
+            $size,
+            $size,
+            $fraction,
+            $fraction
+        );
         return $canvas;
     }
     public static function cloak_resize($data, $size)
